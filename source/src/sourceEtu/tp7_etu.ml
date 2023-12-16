@@ -66,6 +66,7 @@ module Flux : Iter with type 'a t = 'a flux =
 
 (* le type des états de la forme (x, y), (dx, dy)  *)
 (* i.e. position (x, y) et vitesse (dx, dy)        *)
+(* On ajoutant l'etat de la raquette*)
 type etat = (float * float) * (float * float)
 
 
@@ -110,6 +111,8 @@ module FreeFall (F : Frame) =
       let acceleation = Flux.constant( 0., - 9.81) in 
       let vitesse = Flux.map (fun (a,b) -> (a+. v0x, b+. v0y)) (integre F.dt acceleation) in
       let position = Flux.map (fun (a,b) -> (a+. p0x, b+. p0y)) (integre F.dt vitesse) in
+      (* let raquette = Flux.constant (rx, ry) in
+      Flux.map2 (fun (p, v) r -> (p, v, r)) (Flux.map2 (fun p v -> (p, v)) position vitesse) raquette *)
       Flux.map2 (fun p v -> (p, v)) position vitesse
   end
 
@@ -146,13 +149,71 @@ module Bouncing (F : Frame) = struct
 
   module Balle = FreeFall(F)
 
+  let move_paddle ((px, py), (vx, vy), (rx, ry)) new_rx =
+    ((px, py), (vx, vy), (new_rx, ry))
+   
   let contact ((x, y), (dx, dy)) = contact_x F.box_x x dx || contact_y F.box_y y dy
   let rebond ((x, y), (dx, dy)) = (rebond_x F.box_x x dx, rebond_y F.box_y y dy)
   let rec run etat0 = 
     unless (Balle.run etat0) contact (fun (p, v) -> run (p, rebond (p, v)))
 end   
+
+(*Pour la souris: *)
+let get_mouse_position () =
+  Graphics.mouse_pos ()
         
-    
+module BouncingWithPaddle (F : Frame) =
+struct
+  module Balle = FreeFall(F)
+
+  (* Taille de la raquette *)
+  let paddle_width = 80.0
+  let paddle_height = 10.0
+
+  type paddle_state = {
+    mutable rx : float;
+    mutable moving_left : bool;
+    mutable moving_right : bool;
+  }
+
+  let create_paddle initial_rx = { rx = initial_rx; moving_left = false; moving_right = false }
+
+  let move_paddle paddle new_rx =
+    paddle.rx <- new_rx
+
+  let start_move_left paddle =
+    paddle.moving_left <- true
+
+  let stop_move_left paddle =
+    paddle.moving_left <- false
+
+  let start_move_right paddle =
+    paddle.moving_right <- true
+
+  let stop_move_right paddle =
+    paddle.moving_right <- false
+
+  let contact ((px, py), _, paddle) =
+    py <= (F.box_y |> snd) -. paddle_height /. 2. && py >= (F.box_y |> snd) -. paddle_height
+
+  let rebond ((px, py), (vx, vy), paddle) =
+    if contact ((px, py), (vx, vy), paddle) then
+      ((px, py), (vx, -.vy), paddle)
+    else
+      ((px, py), (vx, vy), paddle)
+
+  let update_paddle_with_mouse paddle =
+    let mouse_x, _ = get_mouse_position () in
+    let paddle_width_half = paddle_width /. 2.0 in
+    let new_rx =
+      (* La raquette doit rester dans la boîte de jeu *)
+      max F.box_x |> fst (min (F.box_x |> snd -. paddle_width) (mouse_x -. paddle_width_half))
+    in
+    move_paddle paddle new_rx
+      
+end
+
+
 
 (* Module de représentation graphique d'une balle en 2D         *)
 (* la simulation s'obtient en appliquant draw à un flux d'états *)
