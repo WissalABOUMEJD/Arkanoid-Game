@@ -152,7 +152,8 @@ module Bouncing (F : Frame) = struct
     unless (Balle.run etat0) contact (fun (p, v) -> run (p, rebond (p, v)))
 end   
         
-    
+(*test*)
+
 
 (* Module de représentation graphique d'une balle en 2D         *)
 (* la simulation s'obtient en appliquant draw à un flux d'états *)
