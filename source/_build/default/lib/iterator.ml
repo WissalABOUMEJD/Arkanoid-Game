@@ -58,4 +58,3 @@ module Flux : Intf with type 'a t = 'a flux = struct
   let map f i = apply (constant f) i
   let map2 f i1 i2 = apply (apply (constant f) i1) i2
 end
-

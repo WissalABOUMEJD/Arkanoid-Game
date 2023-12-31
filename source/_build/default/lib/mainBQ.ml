@@ -2,23 +2,17 @@ open Graphics
 open Quadtree
 
 
-(* Define your Brick module (replace with your actual implementation) *)
-
 module type BrickInterf =
   sig
-    type t = { x : float; y : float; width : float; height : float; level : int }
+    type t = { x : float; y : float; width : float; height : float; level : int ; mutable visible : bool}
     val create : float -> float -> float -> float -> int -> t
     val draw : t -> unit
   end 
 
 module Brick : BrickInterf = 
 struct
-  type t = { x : float; y : float; width : float; height : float; level : int }
-  let create x y width height level = { x; y; width; height; level }
-
-  (*let draw brick color=
-    set_color color;
-    fill_rect (int_of_float brick.x) (int_of_float brick.y) (int_of_float brick.width) (int_of_float brick.height)*)
+  type t = { x : float; y : float; width : float; height : float; level : int ; mutable visible : bool}
+  let create x y width height level = { x; y; width; height; level ; visible = true}
 
   let draw brick =
       let color =
@@ -35,8 +29,6 @@ struct
 end
 
 
-(* Create a simple quadtree for demonstration purposes *)
-(* Inclure les déclarations du module *)
 include Brick
 let brick_width = 45
 let brick_height = 10
@@ -51,17 +43,20 @@ let create_quadtree_demo bricks frame_width frame_height ball_radius =
   ) quadtree bricks
 
 (* Draw the quadtree by recursively traversing it *)
-(*
+
 let rec draw_quadtree qt =
   match qt with
-  | Quadtree.Leaf (bricks, _) -> List.iter Brick.draw bricks
+  | Quadtree.Leaf (bricks, _) -> print_string "Hello, draw inside Leaf  \n"; List.iter Brick.draw bricks
+   
   | Quadtree.Node { nw; ne; sw; se; _ } ->
+      print_string "Hello, draw inside Node \n";
       draw_quadtree nw;
       draw_quadtree ne;
       draw_quadtree sw;
       draw_quadtree se;;
-*)
+
 (* Draw the quadtree by recursively traversing it *)
+(*
 let draw_quadtree quadtree =
         let rec draw_node node =
           print_string "Hello, node \n";
@@ -84,8 +79,9 @@ let draw_quadtree quadtree =
         in
         draw_node quadtree
  
-(*
+*)
 
+(*
 let main () =
   open_graph " 800x600";
   auto_synchronize false; (* Disable automatic synchronization for faster drawing *)
@@ -103,7 +99,8 @@ let main () =
 
   (* Create and draw the quadtree *)
   let quadtree = create_quadtree_demo bricks frame_width frame_height ball_radius in
-  draw_quadtree quadtree;
+  let quadtreeUpdated = insert_bricks_into_region bricks { Quadtree.ul = { x = 0.0; y = 0.0 }; Quadtree.lr = { x = frame_width; y = frame_height } } quadtree
+in draw_quadtree quadtreeUpdated;
 
   synchronize (); (* Synchronize the drawing *)
   ignore (wait_next_event [Key_pressed]); (* Wait for a key press before closing *)
@@ -112,7 +109,7 @@ let main () =
 
 let () = main ()
 
-
+*)
 (*
 let () =
   open_graph " 800x600";
@@ -126,7 +123,7 @@ let () =
 *)
 
 
-*)
+
 
 (* Génère un tableau de points 2D aléatoires dans une plage spécifiée*)
 (*
@@ -214,7 +211,5 @@ let random_quadtree () =
 let () =
   Graphics.open_graph " 800x600";
   random_quadtree ()
-
-
-
 *)
+

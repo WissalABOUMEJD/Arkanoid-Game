@@ -88,7 +88,8 @@ let make_leaf () = Leaf ([], { ul = { x = 0.0; y = 0.0 }; lr = { x = 0.0; y = 0.
 
 
 let rec create_quadtree frame_width frame_height ball_radius =
-  let initial_region = { ul = { x = 0.0; y = 0.0 }; lr = { x = float_of_int(2 * ball_radius); y = float_of_int(2 * ball_radius) } } in
+  (*let initial_region = { ul = { x = 0.0; y = 0.0 }; lr = { x = float_of_int(2 * ball_radius); y = float_of_int(2 * ball_radius) } } in*)
+  let initial_region = { ul = { x = 0.0; y = 0.0 }; lr = { x = frame_width; y = frame_height } } in
   let initial_quadtree = make_leaf () in
   let rec subdivide region =
     let centre = { x = (region.ul.x +. region.lr.x) /. 2.0; y = (region.ul.y +. region.lr.y) /. 2.0 } in
@@ -129,8 +130,7 @@ let rec create_quadtree frame_width frame_height ball_radius =
   in
   divide_tree initial_quadtree
        
-
- 
+  
   let rec insert_brick_into_region brick region qt =
     match qt with
     | Leaf (bricks, current_region) when current_region = region ->
@@ -154,6 +154,49 @@ let rec create_quadtree frame_width frame_height ball_radius =
         Node updated_subquadrant
     | _ -> qt   
     
+
+    let insert_bricks_into_region bricks region qt =
+      List.fold_right (fun brick qt -> insert_brick_into_region brick region qt) bricks qt
+  
+   
+    (*
+       
+    let rec insert_quadtree quadtree brick =
+  let rec insert_node node =
+    match node with
+    | Leaf (values, region) ->
+        if List.length values + 1 > 4 (* votre condition de limite *) then
+          let c = centre_region region in
+          let n =
+            Node {
+              centre = c ;
+              region = region ;
+              nw = make_leaf { ul = region.ul ; lr = c } ;
+              sw = make_leaf { ul = { x = region.ul.x ; y = c.y } ; lr = { x = c.x ; y = region.lr.y } };
+              se = make_leaf { ul = c ; lr = region.lr } ;
+              ne = make_leaf { ul = { x = c.x ; y = region.ul.y } ; lr = { x = region.lr.x ; y = c.y } }
+            }
+          in
+          List.fold_right insert_quadtree values (insert_node n)
+        else
+          Leaf (brick :: values, region)
+    | Node n ->
+        let pos = { x = brick.x; y = brick.y } in
+        let updated_node =
+          match (pos.x < n.centre.x, pos.y < n.centre.y) with
+          | (true, true) -> { n with nw = insert_quadtree n.nw brick }
+          | (true, false) -> { n with sw = insert_quadtree n.sw brick }
+          | (false, false) -> { n with se = insert_quadtree n.se brick }
+          | (false, true) -> { n with ne = insert_quadtree n.ne brick }
+        in
+        Node updated_node
+  in
+
+  match quadtree with
+  | Leaf (values, region) -> insert_node (Leaf (values, region))
+  | Node n -> insert_node (Node n)
+  
+  *)
 
     (* Savoir ou se trouve la brique dans quadtree *)
     (* Collision *)

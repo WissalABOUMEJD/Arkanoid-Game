@@ -73,7 +73,7 @@ let handle_collision_with_bricks ball_x ball_y ball_radius bricks =
 *)
 end
 
-    
+ 
 let brick_width = 45
 let brick_height = 10
 
