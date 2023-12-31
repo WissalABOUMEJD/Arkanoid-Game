@@ -1,7 +1,5 @@
-
+open lib/quadtree.ml
 (* interfaces des flux utiles pour toute la séance *)
-
-
 
 module type Iter =
 sig
@@ -68,6 +66,7 @@ module Flux : Iter with type 'a t = 'a flux =
 
 (* le type des états de la forme (x, y), (dx, dy)  *)
 (* i.e. position (x, y) et vitesse (dx, dy)        *)
+(* On ajoutant l'etat de la raquette*)
 type etat = (float * float) * (float * float)
 
 
@@ -112,6 +111,8 @@ module FreeFall (F : Frame) =
       let acceleation = Flux.constant( 0., - 9.81) in 
       let vitesse = Flux.map (fun (a,b) -> (a+. v0x, b+. v0y)) (integre F.dt acceleation) in
       let position = Flux.map (fun (a,b) -> (a+. p0x, b+. p0y)) (integre F.dt vitesse) in
+      (* let raquette = Flux.constant (rx, ry) in
+      Flux.map2 (fun (p, v) r -> (p, v, r)) (Flux.map2 (fun p v -> (p, v)) position vitesse) raquette *)
       Flux.map2 (fun p v -> (p, v)) position vitesse
   end
 
@@ -148,14 +149,104 @@ module Bouncing (F : Frame) = struct
 
   module Balle = FreeFall(F)
 
+  let move_paddle ((px, py), (vx, vy), (rx, ry)) new_rx =
+    ((px, py), (vx, vy), (new_rx, ry))
+   
   let contact ((x, y), (dx, dy)) = contact_x F.box_x x dx || contact_y F.box_y y dy
   let rebond ((x, y), (dx, dy)) = (rebond_x F.box_x x dx, rebond_y F.box_y y dy)
   let rec run etat0 = 
     unless (Balle.run etat0) contact (fun (p, v) -> run (p, rebond (p, v)))
 end   
-        
-(*test*)
 
+(*Module de controle de la raquette*)
+(************************************************************************************************************************)
+        
+  module BouncingWithPaddle (F : Frame) =
+  struct
+    module Balle = FreeFall(F)
+  
+    (* Taille de la raquette *)
+    let paddle_width = 80.0
+    let paddle_height = 10.0
+  
+    type paddle_state = {
+      mutable rx : float;
+      mutable moving_left : bool;
+      mutable moving_right : bool;
+    }
+  
+    let create_paddle initial_rx = { rx = initial_rx; moving_left = false; moving_right = false }
+  
+    let move_paddle paddle new_rx =
+      paddle.rx <- new_rx
+  
+    let start_move_left paddle =
+      paddle.moving_left <- true
+  
+    let stop_move_left paddle =
+      paddle.moving_left <- false
+  
+    let start_move_right paddle =
+      paddle.moving_right <- true
+  
+    let stop_move_right paddle =
+      paddle.moving_right <- false
+  
+    let contact ((px, py), _, paddle) =
+      py <= (F.box_y |> snd) -. paddle_height /. 2. && py >= (F.box_y |> snd) -. paddle_height
+  
+    let rebond ((px, py), (vx, vy), paddle) =
+      if contact ((px, py), (vx, vy), paddle) then
+        ((px, py), (vx, -.vy), paddle)
+      else
+        ((px, py), (vx, vy), paddle)
+  
+    (*Pour le type quadtree, dans le cas 'Leaf ...' j'ai lui mis en triplet pour 
+       montionner soit None(pas de raquette) soit some a = existance de raquette dans notre Frame!!!*)
+    (* Insertion de la raquette dans le Quadtree *)
+    (*val insert_paddle : int -> paddle_state -> quadtree -> quadtree*)
+    let rec insert_paddle nlimit paddle = function
+      | Leaf (values, region, None) ->
+        if List.length values + 1 > nlimit then
+          let c = centre_region region in
+          let n =
+            Node {
+              centre = c;
+              region = region;
+              nw = empty { ul = region.ul; lr = c } None;
+              sw = empty { ul = { x = region.ul.x; y = c.y }; lr = { x = c.x; y = region.lr.y } } None;
+              se = empty { ul = c; lr = region.lr } None;
+              ne = empty { ul = { x = c.x; y = region.ul.y }; lr = { x = region.lr.x; y = c.y } } None
+            }
+          in
+          List.fold_right (insert_paddle nlimit paddle) values (insert_paddle nlimit paddle n)
+        else Leaf (values, region, Some paddle)
+      | Node n -> Node n
+  
+    let update_paddle_with_mouse paddle =
+      let mouse_x, _ = Graphics.mouse_pos () in
+      let paddle_width_half = paddle_width /. 2.0 in
+      let new_rx =
+        (* La raquette doit rester dans la boîte de jeu *)
+        max (F.box_x |> fst) (min (F.box_x |> snd -. paddle_width) (float_of_int mouse_x -. paddle_width_half))
+      in
+      move_paddle paddle new_rx
+  
+    let rec run state =
+      let paddle = create_paddle (F.box_x |> fst +. (F.box_x |> snd -. F.box_x |> fst) /. 2.0) in
+  
+      let rec aux state =
+        unless (Balle.run state) contact (fun (p, v) ->
+          let updated_paddle = update_paddle_with_mouse paddle in
+          let new_state = (p, v, updated_paddle) in
+          let new_quadtree = insert_paddle nlimit updated_paddle state.quadtree in
+          aux { state with quadtree = new_quadtree }
+        )
+      in
+      aux state
+  end
+  
+(************************************************************************************************************************)
 
 (* Module de représentation graphique d'une balle en 2D         *)
 (* la simulation s'obtient en appliquant draw à un flux d'états *)
@@ -200,7 +291,7 @@ module Drawing (F : Frame) =
       end    
   end
 
-(* Exo2 *)
+
 module F1: Frame = 
 struct
   let dt = 0.1
