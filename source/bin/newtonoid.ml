@@ -6,7 +6,7 @@ open Iterator
 open Game
 
 module Init = struct
-  let dt = 1000. /. 60. (* 60 Hz *)
+  let dt = 1. /. 60. (* 60 Hz *)
 end
 
 module Box = struct
@@ -26,7 +26,7 @@ let graphic_format =
 let draw_state etat = failwith "A DEFINIR"
 
 (* extrait le score courant d'un etat : *)
-let score etat : int = failwith "A DEFINIR"
+let score etat : int = (*Ajout*) failwith "A DEFINIR"
 
 let draw flux_etat =
   let rec loop flux_etat last_score =
@@ -49,3 +49,5 @@ let draw flux_etat =
   Graphics.close_graph ()
 
 let () = game_hello ()
+
+
