@@ -1,9 +1,11 @@
 open Graphics
 
-module type Frame = sig
-  val window_width : float
-  val window_height : float
-end
+module type Frame =
+  sig
+    val dt : float
+    val box_x : float * float
+    val box_y : float * float
+  end
 
 module type PaddleI = sig
   type t
@@ -35,7 +37,7 @@ module Paddle (F : Frame) : PaddleI = struct
     let mouse_x, _ = Graphics.mouse_pos () in
     let paddle_width_half = paddle.width /. 2.0 in
     let new_x =
-      max 0.0 (min (F.window_width -. paddle.width) (float_of_int mouse_x -. paddle_width_half))
+      max (fst F.box_x) (min (snd F.box_x -. paddle.width) (float_of_int mouse_x -. paddle_width_half))
     in
     move_to paddle new_x
 
@@ -45,16 +47,22 @@ module Paddle (F : Frame) : PaddleI = struct
 end
 
 (* Main *)
-module F1 : Frame = struct
-  let window_width = 800.0
-  let window_height = 600.0
+module F: Frame = 
+struct
+  let dt = 0.0
+  let box_x = (0., 640.0)
+  let box_y = (0., 480.0)
 end
 
 let main () =
-  open_graph (Format.sprintf " %dx%d" (int_of_float F1.window_width) (int_of_float F1.window_height));
+  let (inf_x, sup_x) = F.box_x in
+  let (inf_y, sup_y) = F.box_y in
+  let size_x = int_of_float (sup_x -. inf_x) in
+  let size_y = int_of_float (sup_y -. inf_y) in
+  Graphics.open_graph (Format.sprintf " %dx%d" size_x size_y);
   auto_synchronize false;
 
-  let module MyPaddle = Paddle (F1) in
+  let module MyPaddle = Paddle (F) in
   let paddle = MyPaddle.create 300.0 45.0 100.0 10.0 in
 
   let rec game_loop () =
