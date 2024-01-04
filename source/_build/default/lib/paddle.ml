@@ -1,11 +1,5 @@
 open Graphics
-
-module type Frame =
-  sig
-    val dt : float
-    val box_x : float * float
-    val box_y : float * float
-  end
+open Iterator
 
 module type PaddleI = sig
   type t
@@ -42,36 +36,6 @@ module Paddle (F : Frame) : PaddleI = struct
     move_to paddle new_x
 
   let draw_paddle paddle =
-    set_color green;
+    set_color red;
     fill_rect (int_of_float paddle.x) (int_of_float paddle.y) (int_of_float paddle.width) (int_of_float paddle.height)
 end
-
-(* Main *)
-module F: Frame = 
-struct
-  let dt = 0.0
-  let box_x = (0., 640.0)
-  let box_y = (0., 480.0)
-end
-
-let main () =
-  let (inf_x, sup_x) = F.box_x in
-  let (inf_y, sup_y) = F.box_y in
-  let size_x = int_of_float (sup_x -. inf_x) in
-  let size_y = int_of_float (sup_y -. inf_y) in
-  Graphics.open_graph (Format.sprintf " %dx%d" size_x size_y);
-  auto_synchronize false;
-
-  let module MyPaddle = Paddle (F) in
-  let paddle = MyPaddle.create 300.0 45.0 100.0 10.0 in
-
-  let rec game_loop () =
-    clear_graph ();
-    MyPaddle.update_with_mouse paddle;
-    MyPaddle.draw_paddle paddle;  (* Appel à la fonction draw_paddle *)
-    synchronize ();
-    Unix.sleepf 0.01;
-    game_loop ()
-  in
-
-  game_loop ()

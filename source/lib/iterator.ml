@@ -1,3 +1,10 @@
+module type Frame =
+  sig
+    val dt : float
+    val box_x : float * float
+    val box_y : float * float
+  end
+
 (* interface des itérateurs (implémentée par les flux) *)
 module type Intf = sig
   type 'a t
