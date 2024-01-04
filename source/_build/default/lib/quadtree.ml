@@ -1,3 +1,5 @@
+open Graphics
+open Brick
 
 (********************************************************************************************)
 (*module Quadtree : QUADTREE = struct*)
@@ -86,118 +88,7 @@ let rec insert nlimit e = function
 
 let make_leaf () = Leaf ([], { ul = { x = 0.0; y = 0.0 }; lr = { x = 0.0; y = 0.0 } })
 
-
-let rec create_quadtree frame_width frame_height ball_radius =
-  (*let initial_region = { ul = { x = 0.0; y = 0.0 }; lr = { x = float_of_int(2 * ball_radius); y = float_of_int(2 * ball_radius) } } in*)
-  let initial_region = { ul = { x = 0.0; y = 0.0 }; lr = { x = frame_width; y = frame_height } } in
-  let initial_quadtree = make_leaf () in
-  let rec subdivide region =
-    let centre = { x = (region.ul.x +. region.lr.x) /. 2.0; y = (region.ul.y +. region.lr.y) /. 2.0 } in
-    let ul = region.ul in
-    let lr = region.lr in
-    {
-      centre;
-      region;
-      nw = Leaf ([], { ul = { x = ul.x; y = ul.y }; lr = centre });
-      ne = Leaf ([], { ul = { x = centre.x; y = ul.y }; lr = { x = lr.x; y = centre.y } });
-      sw = Leaf ([], { ul = { x = ul.x; y = centre.y }; lr = { x = centre.x; y = lr.y } });
-      se = Leaf ([], { ul = centre; lr = lr });
-    }
-  in
-  let rec divide_tree tree =
-    match tree with
-    | Leaf (elements, region) ->
-        if region.lr.x -. region.ul.x <= frame_width && region.lr.y -. region.ul.y <= frame_height then
-          tree
-        else
-          let divided_node = subdivide region in
-          Node {
-            centre = divided_node.centre;
-            region = divided_node.region;
-            nw = divide_tree divided_node.nw;
-            ne = divide_tree divided_node.ne;
-            sw = divide_tree divided_node.sw;
-            se = divide_tree divided_node.se;
-          }
-    | Node node ->
-        Node {
-          node with
-          nw = divide_tree node.nw;
-          ne = divide_tree node.ne;
-          sw = divide_tree node.sw;
-          se = divide_tree node.se;
-        }
-  in
-  divide_tree initial_quadtree
-       
   
-  let rec insert_brick_into_region brick region qt =
-    match qt with
-    | Leaf (bricks, current_region) when current_region = region ->
-        Leaf (brick :: bricks, current_region)
-    | Node { centre; region = node_region; nw; ne; sw; se } ->
-        (* Determiner le quadrant la brique and la region intersect *)
-        let intersect_quadrant =
-          if region.lr.x <= centre.x && region.lr.y <= centre.y then NW
-          else if region.ul.x >= centre.x && region.lr.y <= centre.y then NE
-          else if region.ul.y >= centre.y && region.lr.x <= centre.x then SW
-          else SE
-        in
-        (* Recursively insert into the appropriate subquadrant *)
-        let updated_subquadrant =
-          match intersect_quadrant with
-          | NW -> { nw = insert_brick_into_region brick region nw; ne; sw; se; centre; region = node_region }
-          | NE -> { nw; ne = insert_brick_into_region brick region ne; sw; se; centre; region = node_region }
-          | SW -> { nw; ne; sw = insert_brick_into_region brick region sw; se; centre; region = node_region }
-          | SE -> { nw; ne; sw; se = insert_brick_into_region brick region se; centre; region = node_region }
-        in
-        Node updated_subquadrant
-    | _ -> qt   
-    
-
-    let insert_bricks_into_region bricks region qt =
-      List.fold_right (fun brick qt -> insert_brick_into_region brick region qt) bricks qt
-  
-   
-    (*
-       
-    let rec insert_quadtree quadtree brick =
-  let rec insert_node node =
-    match node with
-    | Leaf (values, region) ->
-        if List.length values + 1 > 4 (* votre condition de limite *) then
-          let c = centre_region region in
-          let n =
-            Node {
-              centre = c ;
-              region = region ;
-              nw = make_leaf { ul = region.ul ; lr = c } ;
-              sw = make_leaf { ul = { x = region.ul.x ; y = c.y } ; lr = { x = c.x ; y = region.lr.y } };
-              se = make_leaf { ul = c ; lr = region.lr } ;
-              ne = make_leaf { ul = { x = c.x ; y = region.ul.y } ; lr = { x = region.lr.x ; y = c.y } }
-            }
-          in
-          List.fold_right insert_quadtree values (insert_node n)
-        else
-          Leaf (brick :: values, region)
-    | Node n ->
-        let pos = { x = brick.x; y = brick.y } in
-        let updated_node =
-          match (pos.x < n.centre.x, pos.y < n.centre.y) with
-          | (true, true) -> { n with nw = insert_quadtree n.nw brick }
-          | (true, false) -> { n with sw = insert_quadtree n.sw brick }
-          | (false, false) -> { n with se = insert_quadtree n.se brick }
-          | (false, true) -> { n with ne = insert_quadtree n.ne brick }
-        in
-        Node updated_node
-  in
-
-  match quadtree with
-  | Leaf (values, region) -> insert_node (Leaf (values, region))
-  | Node n -> insert_node (Node n)
-  
-  *)
-
     (* Savoir ou se trouve la brique dans quadtree *)
     (* Collision *)
     (*

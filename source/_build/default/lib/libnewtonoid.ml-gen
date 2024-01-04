@@ -3,6 +3,9 @@
 (** @canonical Libnewtonoid.Brick *)
 module Brick = Libnewtonoid__Brick
 
+(** @canonical Libnewtonoid.Frame *)
+module Frame = Libnewtonoid__Frame
+
 (** @canonical Libnewtonoid.Game *)
 module Game = Libnewtonoid__Game
 

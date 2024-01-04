@@ -28,188 +28,318 @@ struct
         (int_of_float brick.width) (int_of_float brick.height)
 end
 
+(* Collision 
 
+let collision ball_rect brick_rect =
+  let ball_left = ball_rect.ul.x in
+  let ball_right = ball_rect.lr.x in
+  let ball_top = ball_rect.ul.y in
+  let ball_bottom = ball_rect.lr.y in
+
+  let brick_left = brick_rect.ul.x in
+  let brick_right = brick_rect.lr.x in
+  let brick_top = brick_rect.ul.y in
+  let brick_bottom = brick_rect.lr.y in
+
+  ball_left <= brick_right && ball_right >= brick_left &&
+  ball_top <= brick_bottom && ball_bottom >= brick_top
+
+
+let collision_result brick_rect =
+  let ball_rect = {
+    ul = { x = ball.x -. ball_radius; y = ball.y -. ball_radius };
+    lr = { x = ball.x +. ball_radius; y = ball.y +. ball_radius };
+  } in
+  collision ball_rect brick_rect
+
+
+let find_and_remove_collided_brick state collision_result =
+  let rec find_and_remove_brick qt =
+    match qt with
+    | Quadtree.Leaf (bricks, _) ->
+        let collided_brick_opt =
+          List.find_opt
+            (fun brick ->
+              let brick_rect =
+                {
+                  Quadtree.ul = { x = brick.Brick.x; y = brick.Brick.y };
+                  lr = { x = brick.Brick.x +. brick.Brick.width; y = brick.Brick.y +. brick.Brick.height };
+                }
+              in
+              collision_result brick_rect
+            )
+            bricks
+        in
+        (match collided_brick_opt with
+        | Some(collided_brick) ->
+            (* Supprimer la brique touchée de la liste *)
+            state.bricks <- List.filter (fun brick -> brick != collided_brick) state.bricks
+        | None -> ());
+    | Quadtree.Node (nw, ne, sw, se) ->
+        find_and_remove_brick nw;
+        find_and_remove_brick ne;
+        find_and_remove_brick sw;
+        find_and_remove_brick se
+  in
+
+  find_and_remove_brick state.quadtree
+
+  *)
+
+(************************************************************************************************************************************************************)
 include Brick
 let brick_width = 45
 let brick_height = 10
 
-(* Create a simple quadtree for demonstration purposes *)
-let create_quadtree_demo bricks frame_width frame_height ball_radius =
-  let quadtree = Quadtree.create_quadtree frame_width frame_height ball_radius in
-  print_string "Hello, tree \n";
-  List.fold_left (fun qt brick ->
-    let brick_region = { Quadtree.ul = { x = 0.0; y = 0.0 }; Quadtree.lr = { x = frame_width /. 2.0 ; y = frame_height /. 2.0 } } in
-    Quadtree.insert_brick_into_region brick brick_region qt
-  ) quadtree bricks
+type frame = {
+  width : float;
+  height : float;
+}
 
-(* Draw the quadtree by recursively traversing it *)
+let make_leaf (region : rect) : 'a quadtree =
+  Leaf ([], region)
+
+let centre_region (region : rect) : vec =
+  { x = (region.ul.x +. region.lr.x) /. 2.0; y = (region.ul.y +. region.lr.y) /. 2.0 }
+
+let rec insert_quadtree (quadtree : 'a quadtree) (item : 'a) : 'a quadtree =
+
+  (*let is_upper_frame_brick (brick : 'a) =
+    brick.y >= 300.0 /. 2.0 && brick.y <= 600.0 
+  in*)
+
+  match quadtree with
+  | Leaf (values, region) ->
+      let updated_values = item :: values in
+      (* Créer un nœud initial si la feuille est pleine *)
+      if List.length values + 1 > 1 then
+        let c = centre_region region in
+        let n = Node {
+              centre = c;
+              region = region;
+              nw = make_leaf { ul = region.ul; lr = c };
+              ne = make_leaf { ul = { x = region.ul.x; y = c.y }; lr = { x = c.x; y = region.lr.y } };
+              sw = make_leaf { ul = { x = region.ul.x; y = c.y }; lr = c };
+              se = make_leaf { ul = c; lr = region.lr };
+            }
+        in
+        List.fold_left (fun acc v -> insert_quadtree acc v) n updated_values
+      else
+        (* Ajouter à la feuille existante *)
+        Leaf (updated_values, region)
+  | Node n ->
+      (* Insérer dans le nœud *)
+      let pos = { x = item.x; y = item.y } in
+        let updated_node =
+          match (pos.x < n.centre.x, pos.y < n.centre.y) with
+          | (true, true) -> { n with nw = insert_quadtree n.nw item }
+          | (true, false) -> { n with sw = insert_quadtree n.sw item }
+          | (false, false) -> { n with se = insert_quadtree n.se item }
+          | (false, true) -> { n with ne = insert_quadtree n.ne item }
+        in
+        Node updated_node
+
+(********************************************************************)
+
+  let create_quadtree frame_width frame_height : 'a quadtree =
+  let initial_region = { ul = { x = 0.0; y = frame_height/. 2.0  }; lr = { x = frame_width; y = frame_height } } in
+  let centre = centre_region initial_region in
+  let initial_node = {
+    centre = centre_region initial_region;
+    region = initial_region;
+    nw = make_leaf { ul = initial_region.ul; lr = centre };
+    ne = make_leaf { ul = { x = centre.x; y = initial_region.ul.y }; lr = { x = initial_region.lr.x; y = centre.y } };
+    sw = make_leaf { ul = { x = initial_region.ul.x; y = centre.y }; lr = centre };
+    se = make_leaf { ul = centre; lr = initial_region.lr };
+  } in
+  Node initial_node
+
+(*
+(* Retourne la région de l'objet (brique par exemple)*)
+let rec find_region (quadtree : 'a quadtree) (item : 'a) : rect option =
+  match quadtree with
+  | Leaf (_, region) -> Some region
+  | Node n ->
+      let pos = { x = item.x; y = item.y } in
+      match (pos.x < n.centre.x, pos.y < n.centre.y) with
+      | (true, true) -> find_region n.nw item
+      | (true, false) -> find_region n.sw item
+      | (false, false) -> find_region n.se item
+      | (false, true) -> find_region n.ne item
+
+let rec remove_brick_from_quadtree (quadtree : 'a quadtree) (item : 'a) : 'a quadtree =
+  match quadtree with
+  | Leaf (values, region) ->
+      let updated_values = List.filter (fun v -> v != item) values in
+      if List.length updated_values = 0 then
+        make_leaf region
+      else
+        Leaf (updated_values, region)
+  | Node n -> 
+      let pos = { x = item.x; y = item.y } in
+      let updated_node =
+        match (pos.x < n.centre.x, pos.y < n.centre.y) with
+        | (true, true) -> { n with nw = remove_brick_from_quadtree n.nw item }
+        | (true, false) -> { n with sw = remove_brick_from_quadtree n.sw item }
+        | (false, false) -> { n with se = remove_brick_from_quadtree n.se item }
+        | (false, true) -> { n with ne = remove_brick_from_quadtree n.ne item }
+      in
+      Node updated_node
+
+    let update_quadtree_after_collision quadtree brick =
+      match find_region quadtree brick with
+        | Some region ->
+            let updated_quadtree = remove_brick_from_quadtree quadtree brick in
+            draw_quadtree_with_bricks updated_quadtree;
+            updated_quadtree
+        | None -> quadtree
+
+    *)
+
+(*
+  let rec is_collision region x y width height =
+  let open Float in
+  let brick_region = { ul = { x = x; y = y }; lr = { x = x +. width; y = y +. height } } in
+  region.ul.x <= brick_region.lr.x && region.lr.x >= brick_region.ul.x && region.ul.y <= brick_region.lr.y
+  && region.lr.y >= brick_region.ul.y
+
+  let update_quadtree_after_collision quadtree brick =
+  match find_region quadtree brick with
+  | Some region ->
+      let updated_quadtree = remove_brick_from_quadtree quadtree brick in
+      draw_quadtree_with_bricks updated_quadtree;
+      updated_quadtree
+  | None -> quadtree
+*)
+
+
+
+let main () =
+  (* Initialiser la fenêtre graphique *)
+  open_graph " 800x600";
+  auto_synchronize false; (* Disable automatic synchronization for faster drawing *)
+  (*set_color Graphics.green;*)
+  let frame_width = 800.0 in
+  let frame_height = 600.0 in
+  let frame_bottom = frame_height /. 2.0 in
+  let frame_top = frame_height in
+
+
+  let region_init = { ul = { x = 0.0; y = 300.0 }; lr = { x = 800.0; y = 600.0 } } in
+
+  
+  (* Créer le quadtree *)
+  let quadtree = create_quadtree 800.0 600.0 in
+  (*let quadtree = make_leaf region_init in*)
+
+  (* Créer les briques *)
+            
+ let brick1 = Brick.create 205.0 310.0 (float brick_width) (float brick_height) 1 in
+ (*NW*)
+ let brick2 = Brick.create 205.0 350.0 (float brick_width) (float brick_height) 2 in
+ let brick3 = Brick.create 205.0 400.0 (float brick_width) (float brick_height) 3 in
+ let brick4 = Brick.create 205.0 470.0 (float brick_width) (float brick_height) 4 in  
+ 
+
+ let brick5 = Brick.create 130.0 310.0 (float brick_width) (float brick_height) 1 in
+ let brick6 = Brick.create 130.0 350.0 (float brick_width) (float brick_height) 2 in
+ let brick7 = Brick.create 130.0 400.0 (float brick_width) (float brick_height) 3 in
+ let brick8 = Brick.create 130.0 470.0 (float brick_width) (float brick_height) 4 in
+ 
+ 
+ let brick9 = Brick.create 30.0 310.0 (float brick_width) (float brick_height) 1 in
+ let brick10 = Brick.create 30.0 350.0 (float brick_width) (float brick_height) 2 in
+ let brick11 = Brick.create 30.0 400.0 (float brick_width) (float brick_height) 3 in
+ let brick12 = Brick.create 30.0 470.0 (float brick_width) (float brick_height) 4 in
+
+ let brick13 = Brick.create 500.0 310.0 (float brick_width) (float brick_height) 1 in
+  (*NW*)
+ let brick14 = Brick.create 500.0 350.0 (float brick_width) (float brick_height) 2 in
+ let brick15 = Brick.create 500.0 400.0 (float brick_width) (float brick_height) 3 in
+ let brick16 = Brick.create 500.0 470.0 (float brick_width) (float brick_height) 4 in
+
+ let brick17 = Brick.create 600.0 310.0 (float brick_width) (float brick_height) 1 in
+  (*NW*)
+ let brick18 = Brick.create 600.0 350.0 (float brick_width) (float brick_height) 2 in
+ let brick19 = Brick.create 600.0 400.0 (float brick_width) (float brick_height) 3 in
+ let brick20 = Brick.create 600.0 430.0 (float brick_width) (float brick_height) 4 in
+ let brick21 = Brick.create 600.0 470.0 (float brick_width) (float brick_height) 5 in
+
+ (*NW*)
+let brick22 = Brick.create 300.0 310.0 (float brick_width) (float brick_height) 1 in
+ let brick23 = Brick.create 300.0 350.0 (float brick_width) (float brick_height) 2 in
+ let brick24 = Brick.create 300.0 400.0 (float brick_width) (float brick_height) 3 in
+ let brick25 = Brick.create 300.0 470.0 (float brick_width) (float brick_height) 4 in
+
+
+let bricks = [brick1;brick3;brick4; brick5; brick6; brick7; brick8; brick9; brick10; brick11; brick12; brick13; brick15; brick16; brick17; brick19; brick20; 
+brick21] in 
+
+
+(* Insertion des briques dans le quadtree *)
+let quadtree_with_bricks = List.fold_left insert_quadtree quadtree bricks in
+(*
+
+(* Recherche de la région d'une brique dans le quadtree *)
+let brick_to_find = List.hd bricks in
+let region_of_brick = find_region quadtree_with_bricks brick_to_find in 
+match region_of_brick with
+| Some region ->
+    (* Affichage des coordonnées de la région dans le terminal *)
+    Printf.printf "Région de la brique : ul(%.2f, %.2f), lr(%.2f, %.2f)\n"
+    region.ul.x region.ul.y region.lr.x region.lr.y;
+| None -> ();;
+*)
+
+(*
+let draw_ball ball =
+  set_color blue;
+  fill_circle (int_of_float ball.x) (int_of_float ball.y) (int_of_float ball.radius)
+
+let draw_element element =
+  match element with
+  | `Brick brick -> draw_brick brick
+  | `Ball ball -> draw_ball ball
+*)
 
 let rec draw_quadtree qt =
   match qt with
-  | Quadtree.Leaf (bricks, _) -> print_string "Hello, draw inside Leaf  \n"; List.iter Brick.draw bricks
-   
-  | Quadtree.Node { nw; ne; sw; se; _ } ->
-      print_string "Hello, draw inside Node \n";
-      draw_quadtree nw;
-      draw_quadtree ne;
-      draw_quadtree sw;
-      draw_quadtree se;;
+  | Leaf (elements, region) ->
+      (* Dessiner la région *)
+      set_color blue;
+      draw_rect (int_of_float region.ul.x) (int_of_float region.ul.y)
+                (int_of_float (region.lr.x -. region.ul.x))
+                (int_of_float (region.lr.y -. region.ul.y));
 
-(* Draw the quadtree by recursively traversing it *)
-(*
-let draw_quadtree quadtree =
-        let rec draw_node node =
-          print_string "Hello, node \n";
-          match node with
-          | Leaf (_, region) -> draw_region region
-          | Node n ->
-              draw_region n.region;
-              draw_node n.nw;
-              draw_node n.ne;
-              draw_node n.sw;
-              draw_node n.se
-        and draw_region region =
-          print_string "Hello, region \n";
-          set_color Graphics.blue; (* Choisissez la couleur de votre choix *)
-          fill_rect
-            (int_of_float region.ul.x)
-            (int_of_float region.ul.y)
-            (int_of_float (region.lr.x -. region.ul.x))
-            (int_of_float (region.lr.y -. region.ul.y))
-        in
-        draw_node quadtree
- 
-*)
+      (* Dessiner les éléments de la feuille *)
+      (*
+      set_color red;
+      (*List.iter draw_element elements*)
+      List.iter (fun e -> fill_rect (int_of_float e.x) (int_of_float e.y) 5 5) elements
+      *)
+      List.iter Brick.draw elements
+  | Node n ->
+      (* Dessiner la région du nœud *)
+      set_color green;
+      draw_rect (int_of_float n.region.ul.x) (int_of_float n.region.ul.y)
+                (int_of_float (n.region.lr.x -. n.region.ul.x))
+                (int_of_float (n.region.lr.y -. n.region.ul.y));
 
-(*
-let main () =
-  open_graph " 800x600";
-  auto_synchronize false; (* Disable automatic synchronization for faster drawing *)
+      (* Dessiner les sous-quadtrees *)
+      draw_quadtree n.nw;
+      draw_quadtree n.ne;
+      draw_quadtree n.sw;
+      draw_quadtree n.se 
+in
+draw_quadtree quadtree_with_bricks;
 
-  let brick1 = Brick.create 50.0 50.0 (float brick_width) (float brick_height) 1 in
-  let brick2 = Brick.create 200.0 100.0 (float brick_width) (float brick_height) 2 in
-  let brick3 = Brick.create 400.0 300.0 (float brick_width) (float brick_height) 3 in
-
-  let bricks = [brick1; brick2; brick3 ] in
-  (*List.iter Brick.draw bricks; (* Draw the bricks *)*)
-
-  let frame_width = 800.0 in
-  let frame_height = 600.0 in
-  let ball_radius = 20 in
-
-  (* Create and draw the quadtree *)
-  let quadtree = create_quadtree_demo bricks frame_width frame_height ball_radius in
-  let quadtreeUpdated = insert_bricks_into_region bricks { Quadtree.ul = { x = 0.0; y = 0.0 }; Quadtree.lr = { x = frame_width; y = frame_height } } quadtree
-in draw_quadtree quadtreeUpdated;
-
+  (* Attendre un événement utilisateur avant de fermer la fenêtre *)
   synchronize (); (* Synchronize the drawing *)
   ignore (wait_next_event [Key_pressed]); (* Wait for a key press before closing *)
-
+  
+    (* Fermer la fenêtre *)
   close_graph ()
 
+
+(* Appeler la fonction main *)
 let () = main ()
-
-*)
-(*
-let () =
-  open_graph " 800x600";
-  let frame_width = 800.0 in
-  let frame_height = 600.0 in
-  let ball_radius = 20 in
-  let quadtree = create_quadtree frame_width frame_height ball_radius in
-  draw_quadtree quadtree;
-  Unix.sleep 2;  (* Pause pendant 2 secondes avant de fermer la fenêtre *)
-  close_graph ()
-*)
-
-
-
-
-(* Génère un tableau de points 2D aléatoires dans une plage spécifiée*)
-(*
-let empty_quadtree = Leaf ([], { ul = { x = 0.0; y = 0.0 }; lr = { x = 0.0; y = 0.0 } })
-
-let rec insertNew value position quadtree =
-  let rec subdivide region =
-    let centre = { x = (region.ul.x +. region.lr.x) /. 2.0; y = (region.ul.y +. region.lr.y) /. 2.0 } in
-    let ul = region.ul in
-    let lr = region.lr in
-    {
-      centre;
-      region;
-      nw = Leaf ([], { ul = { x = ul.x; y = ul.y }; lr = centre });
-      ne = Leaf ([], { ul = { x = centre.x; y = ul.y }; lr = { x = lr.x; y = centre.y } });
-      sw = Leaf ([], { ul = { x = ul.x; y = centre.y }; lr = { x = centre.x; y = lr.y } });
-      se = Leaf ([], { ul = centre; lr = lr });
-    }
-  in
-  let rec insert_value value position quadtree =
-    match quadtree with
-    | Leaf (values, region) ->
-        let new_values = (value, position) :: values in
-        if List.length new_values <= 10 then
-          Leaf (new_values, region)
-        else
-          let divided_node = subdivide region in
-          List.fold_left (fun qt (v, pos) -> insert_value v pos qt) (Node divided_node) new_values
-    | Node node ->
-        let quadrant = determine_quadrant position node.centre in
-        let subquadtree =
-          match quadrant with
-          | NW -> node.nw
-          | NE -> node.ne
-          | SW -> node.sw
-          | SE -> node.se
-        in
-        let updated_subquadtree = insert_value value position subquadtree in
-        match quadrant with
-        | NW -> Node { node with nw = updated_subquadtree }
-        | NE -> Node { node with ne = updated_subquadtree }
-        | SW -> Node { node with sw = updated_subquadtree }
-        | SE -> Node { node with se = updated_subquadtree }
-  in
-  insert_value value position quadtree
-
-and determine_quadrant position centre =
-  if position.x <= centre.x then
-    if position.y <= centre.y then NW else SW
-  else
-    if position.y <= centre.y then NE else SE
-
-let rec draw_quadtree quadtree =
-  let rec draw_node node =
-    match node with
-    | Leaf (_, region) -> draw_region region
-    | Node n ->
-        draw_region n.region;
-        draw_node n.nw;
-        draw_node n.ne;
-        draw_node n.sw;
-        draw_node n.se
-  and draw_region region =
-    Graphics.set_color Graphics.blue;
-    Graphics.fill_rect
-      (int_of_float region.ul.x)
-      (int_of_float region.ul.y)
-      (int_of_float (region.lr.x -. region.ul.x))
-      (int_of_float (region.lr.y -. region.ul.y))
-  in
-  draw_node quadtree
-
-let random_quadtree () =
-  let qt =
-    insertNew 10 (1.0, 1.0)
-      (insertNew 10 (1.0, 2.0)
-         (insertNew 10 (5.0, 3.0)
-            (insertNew 10 (3.0, 4.0)
-               (insertNew 10 (7.0, 5.0) empty_quadtree))))
-  in
-  draw_quadtree qt;
-  ignore (wait_next_event [Key_pressed]); (* Wait for a key press before closing *)
-  Graphics.close_graph ()
-
-let () =
-  Graphics.open_graph " 800x600";
-  random_quadtree ()
-*)
-
