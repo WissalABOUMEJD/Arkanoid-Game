@@ -1,8 +1,10 @@
 open Graphics
 open Brick
+ (* Ce fichier est utilisé pour avoir les types définis (quadtree, rect, vec, quadnode) pour notre jeu *)
+ (* les fonctions définies dans ce fichier étaient notre première version de quadtree pour insertion d'un objet bidimensionnel e pour nlimit défini*)
+    
 
 (********************************************************************************************)
-(*module Quadtree : QUADTREE = struct*)
 
 (* Définition du type pour un point *)
 type vec = { x : float ; y : float }
@@ -88,28 +90,3 @@ let rec insert nlimit e = function
 
 let make_leaf () = Leaf ([], { ul = { x = 0.0; y = 0.0 }; lr = { x = 0.0; y = 0.0 } })
 
-  
-    (* Savoir ou se trouve la brique dans quadtree *)
-    (* Collision *)
-    (*
-    let rec query_brick_region quadtree brick =
-      let rec query_node node =
-        if is_collision node.region brick then
-          match node with
-          | Leaf (values, _) -> values
-          | Node n -> query_quadnode n
-        else
-          []
-      and query_quadnode { nw; ne; sw; se; _ } =
-        List.flatten [query_node nw; query_node ne; query_node sw; query_node se]
-      and is_collision region brick =
-        (* Vérifie si la brique est en collision avec la région *)
-        let brick_ul = { x = brick.x; y = brick.y } in
-        let brick_lr = { x = brick.x +. brick.width; y = brick.y +. brick.height } in
-        brick_ul.x >= region.ul.x && brick_ul.y >= region.ul.y &&
-        brick_lr.x <= region.lr.x && brick_lr.y <= region.lr.y
-      in
-      match quadtree with
-      | Leaf (values, _) -> values
-      | Node node -> query_node node
-      *)

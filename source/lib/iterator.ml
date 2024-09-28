@@ -1,3 +1,7 @@
+exception End
+open Graphics
+open Brick
+
 module type Frame =
   sig
     val dt : float

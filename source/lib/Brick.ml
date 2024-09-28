@@ -22,57 +22,25 @@ struct
   let create x y width height level = { x; y; width; height; level; visible = true }
 
   let draw brick =
-      let color =
+    let color =
+      if brick.visible then (
         match brick.level with
         | 1 -> Graphics.green
         | 2 -> Graphics.red
         | 3 -> Graphics.blue
         | 4 -> Graphics.yellow
-        | _ -> Graphics.black (* Couleur par défaut pour les niveaux non spécifiés *)
-      in
-      Graphics.set_color color;
-      Graphics.fill_rect (int_of_float brick.x) (int_of_float brick.y)
-        (int_of_float brick.width) (int_of_float brick.height)
+        | _ -> Graphics.black 
+      ) else (
+        Graphics.white (* Briques invisibles *)
+      )
+    in
+    Graphics.set_color color;
+    Graphics.fill_rect (int_of_float brick.x) (int_of_float brick.y)
+      (int_of_float brick.width) (int_of_float brick.height)
 
-    (*
-(* Fonction pour vérifier la collision entre la balle et la brique *)
-let check_collision ball_x ball_y ball_radius brick =
-  let brick_x = brick.x in
-  let brick_y = brick.y in
-  let brick_width = brick.width in
-  let brick_height = brick.height in
-
-  let ball_left = ball_x -. ball_radius in
-  let ball_right = ball_x +. ball_radius in
-  let ball_top = ball_y -. ball_radius in
-  let ball_bottom = ball_y +. ball_radius in
-
-  let brick_left = brick_x in
-  let brick_right = brick_x +. brick_width in
-  let brick_top = brick_y in
-  let brick_bottom = brick_y +. brick_height in
-
-  ball_right >= brick_left && ball_left <= brick_right &&
-  ball_bottom >= brick_top && ball_top <= brick_bottom
-
-(* Fonction pour gérer la collision avec les briques *)
-let handle_collision_with_bricks ball_x ball_y ball_radius bricks =
-  let rec handle_collision_ball_with_brick bricks =
-    match bricks with
-    | [] -> ()  (* Aucune collision détectée *)
-    | brick :: rest ->
-        if brick.visible && check_collision ball_x ball_y ball_radius brick then begin
-          (* Collision détectée, traiter la disparition de la brique *)
-          brick.visible <- false;
-          handle_collision_ball_with_brick rest
-        end else
-          handle_collision_ball_with_brick rest
-  in
-
-  handle_collision_ball_with_brick bricks
-*)
 end
 
+(******************************************** TESTS DE LA CREATION ET LE DESSIN DES BRIQUES ******************************************************************)
 (*
 let brick_width = 45
 let brick_height = 10
@@ -81,7 +49,7 @@ let main () =
   open_graph " 800x600";
   auto_synchronize false; (* Disable automatic synchronization for faster drawing *)
 
-  (* Create and draw the bricks *)
+  (* Tester create and draw des briques *)
   let brick1 = Brick.create 500.0 300.0 (float brick_width) (float brick_height) 1 in
   let brick2 = Brick.create 500.0 350.0 (float brick_width) (float brick_height) 2 in
   let brick3 = Brick.create 500.0 400.0 (float brick_width) (float brick_height) 3 in
@@ -117,9 +85,8 @@ let main () =
   
   List.iter Brick.draw bricks;
 
-  synchronize (); (* Synchronize the drawing *)
-  ignore (wait_next_event [Key_pressed]); (* Wait for a key press before closing *)
-
+  synchronize (); 
+  ignore (wait_next_event [Key_pressed]); 
   close_graph ()
 
 let () = main ()

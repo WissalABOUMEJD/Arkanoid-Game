@@ -1,8 +1,22 @@
+open Paddle
 open Iterator
+open Graphics
 
 (* le type des états de la forme (x, y), (dx, dy)  *)
 (* i.e. position (x, y) et vitesse (dx, dy)        *)
 type etat = (float * float) * (float * float)
+
+(*Module de configuration de la raquette*)
+module Config = 
+struct
+  
+  let x = 300.0
+  let y = 45.0
+  let  width = 100.0
+  let height = 10.0
+  
+  
+end
 
   (* Fonction qui intègre/somme les valeurs successives du flux *)
 (* avec un pas de temps dt et une valeur initiale nulle, i.e. *)
@@ -27,7 +41,7 @@ let integre dt flux =
 (* successifs de la balle, qui pourra être affiché             *)
 module FreeFall (F : Frame) =
   struct
-    (* Exo1 *)
+    let rB = 5.0
     let run : etat -> etat Flux.t = 
       fun ((p0x, p0y), (v0x, v0y)) ->
       let acceleation = Flux.constant( 0., - 9.81) in 
@@ -48,24 +62,18 @@ let rec unless flux cond f_flux =
 
 (*float -> float -> bool*)
 let contact_x (x1, x2) x dx = 
+(*   let (rx,_) = mouse_pos () in 
+  (x <= x1 && dx <= 0.) || (x >= x2 && dx >= 0.) || (x >= float_of_int rx && x <= float_of_int rx +. Config.width && dx < 0.)  *)
   (x <= x1 && dx <= 0.) || (x >= x2 && dx >= 0.)
 
 let contact_y (x1, x2) x dx = 
-  (x <= x1 && dx <= 0.) || (x >= x2 && dx >= 0.)
-
+(*   (x <= x1 && dx <= 0.) || (x >= x2 && dx >= 0.) || (x >= Config.y && x <= Config.y +. Config.height && dx < 0. )
+ *)   (x <= x1 && dx <= 0.) || (x >= x2 && dx >= 0.) 
+ 
 (*float -> float -> float*)
 let rebond_x (x1, x2) x dx = 
-  if contact_x (x1, x2) x dx then -. dx else dx
+  if (contact_x (x1, x2) x dx) then -. dx else dx
   
 let rebond_y (x1, x2) y dy = 
-  if contact_y (x1, x2) y dy then -. dy else dy
-
-  module Bouncing (F : Frame) = struct
-
-    module Balle = FreeFall(F)
-     
-    let contact ((x, y), (dx, dy)) = contact_x F.box_x x dx || contact_y F.box_y y dy
-    let rebond ((x, y), (dx, dy)) = (rebond_x F.box_x x dx, rebond_y F.box_y y dy)
-    let rec run etat0 = 
-      unless (Balle.run etat0) contact (fun (p, v) -> run (p, rebond (p, v)))
-  end 
+  (* if (contact_y (x1, x2) y dy) || (contact_paddle_y (x1, x2) y dy) then -. dy else dy *)
+  if (contact_y (x1, x2) y dy) then -. dy else dy
